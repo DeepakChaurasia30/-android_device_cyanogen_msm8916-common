@@ -46,7 +46,8 @@ on fs
     wait /dev/block/platform/soc.0/${ro.boot.bootdevice}
     symlink /dev/block/platform/soc.0/${ro.boot.bootdevice} /dev/block/bootdevice
 
-    mount_all /vendor/etc/fstab.qcom --early
+    mount_all /vendor/etc/fstab.qcom
+
     restorecon_recursive /persist
 
     # Start HW service manager early
@@ -60,8 +61,6 @@ on late-fs
     start configstore-hal-1-0
     start gralloc-2-0
 
-    # Mount RW partitions which need run fsck
-    mount_all /vendor/etc/fstab.qcom --late
 
     mount none /system/etc/gps.conf /system/etc/gps_debug.conf bind
 
@@ -261,13 +260,6 @@ service ril-daemon2 /vendor/bin/hw/rild -c 2
     group radio cache inet misc audio log readproc wakelock
     capabilities BLOCK_SUSPEND NET_ADMIN NET_RAW
 
-service set_zram /vendor/bin/sh /system/vendor/bin/set_zram.sh
-    class late_start
-    disabled
-    user root
-    group system
-    oneshot
-
 service charger /system/bin/charger
     class charger
     user system
@@ -300,6 +292,24 @@ service ppd /system/vendor/bin/mm-pp-daemon
     user system
     socket pps stream 0660 system system
     group system graphics
+    
+on property:init.svc.surfaceflinger=stopped
+    stop ppd
+
+on property:init.svc.surfaceflinger=running
+    start ppd
+
+on property:init.svc.surfaceflinger=restarting
+   stop ppd
+
+on property:init.svc.zygote=stopped
+   stop ppd
+
+on property:init.svc.zygote=running
+   start ppd
+
+on property:init.svc.zygote=restarting
+  stop ppd
 
 service wcnss-service /system/vendor/bin/wcnss_service
     class late_start
